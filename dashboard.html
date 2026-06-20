@@ -3,17 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard | Itlog App</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <h1>Welcome sa iyong Dashboard!</h1>
     <p>Naka-login ka na nang matagumpay.</p>
+    
+    <div id="order-form">
+        <h3>Mag-order ng Itlog</h3>
+        <input type="number" id="qty" placeholder="Ilang tray?">
+        <button id="submit-order">Order Now</button>
+    </div>
+
+    <br><br>
     <button id="logout">Logout</button>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    
     <script>
-        // Ang iyong Firebase Config
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
             authDomain: "eggforyouapp.firebaseapp.com",
@@ -24,23 +32,44 @@
         };
         
         firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
-        // Security Guard: I-check kung may naka-login
+        // Security Guard
         firebase.auth().onAuthStateChanged(function(user) {
             if (!user) {
-                // Kung walang user, pilit na ibabalik sa login page
                 window.location.href = "index.html";
-            } else {
-                console.log("Logged in as:", user.phoneNumber);
             }
         });
 
-        // Logout function
+        // Logic para sa Order
+        document.getElementById('submit-order').addEventListener('click', function() {
+            const qty = document.getElementById('qty').value;
+            const user = firebase.auth().currentUser;
+
+            if (qty > 0 && user) {
+                db.collection("orders").add({
+                    userId: user.uid,
+                    phoneNumber: user.phoneNumber,
+                    quantity: parseInt(qty),
+                    status: "pending",
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                })
+                .then(() => {
+                    alert("Order success!");
+                    document.getElementById('qty').value = "";
+                })
+                .catch((error) => {
+                    alert("Error: " + error.message);
+                });
+            } else {
+                alert("Maglagay ng tamang dami!");
+            }
+        });
+
+        // Logout
         document.getElementById('logout').addEventListener('click', function() {
             firebase.auth().signOut().then(() => {
                 window.location.href = "index.html";
-            }).catch((error) => {
-                alert("Error sa pag-logout: " + error.message);
             });
         });
     </script>
