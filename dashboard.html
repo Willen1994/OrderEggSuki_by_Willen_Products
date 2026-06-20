@@ -9,6 +9,7 @@
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         .loader { display: inline-block; width: 10px; height: 10px; background: orange; border-radius: 50%; animation: blink 1s infinite; margin-right: 5px; }
         body { font-family: sans-serif; padding: 20px; }
+        .price-tag { color: blue; font-weight: bold; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -22,32 +23,38 @@
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
-  authDomain: "eggforyouapp.firebaseapp.com",
-  projectId: "eggforyouapp",
-  storageBucket: "eggforyouapp.firebasestorage.app",
-  messagingSenderId: "278734919378",
-  appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
-};
+            authDomain: "eggforyouapp.firebaseapp.com",
+            projectId: "eggforyouapp",
+            storageBucket: "eggforyouapp.firebasestorage.app",
+            messagingSenderId: "278734919378",
+            appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
+        };
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const adminNumber = "+639159377840"; 
+        const pricePerTray = 120; // Dito mo pwedeng baguhin ang presyo
 
         firebase.auth().onAuthStateChanged(function(user) {
             if (!user) { window.location.href = "index.html"; return; }
             
             const content = document.getElementById('content');
-            // Ginamitan ng .trim() para sigurado ang match
             const currentPhone = user.phoneNumber ? user.phoneNumber.trim() : "";
-            console.log("Naka-login na number:", currentPhone);
 
             if (currentPhone === adminNumber.trim()) {
                 content.innerHTML = `<h3>Admin Panel</h3><ul id="order-list"></ul>`;
                 loadAdminOrders();
             } else {
                 content.innerHTML = `<h3>Mag-order ng Itlog</h3>
+                                    <p>Presyo: ₱${pricePerTray} bawat tray</p>
                                     <input type="number" id="qty" placeholder="Ilang tray?">
+                                    <p>Total na babayaran: <span id="total-price" class="price-tag">₱0</span></p>
                                     <button id="submit-order">Order Now</button>`;
+                
+                document.getElementById('qty').addEventListener('input', function() {
+                    const total = this.value * pricePerTray;
+                    document.getElementById('total-price').innerText = "₱" + (this.value > 0 ? total : 0);
+                });
                 document.getElementById('submit-order').onclick = saveOrder;
             }
         });
@@ -66,13 +73,14 @@
                 snap.forEach(doc => {
                     const o = doc.data();
                     const li = document.createElement('li');
+                    const total = o.quantity * pricePerTray;
                     
                     if(o.status === 'pending') {
-                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> 
+                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> (Singilin: <span class="price-tag">₱${total}</span>) 
                         <span class="pending"><div class="loader"></div> PENDING</span> 
                         <button onclick="updateStatus('${doc.id}')">Mark as Done</button>`;
                     } else {
-                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> 
+                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> (Sinisingil: <span class="price-tag">₱${total}</span>) 
                         <span class="completed">✅ DONE!</span> 
                         <br><small>Delivered on: ${o.deliveredAt}</small>`;
                     }
@@ -83,13 +91,13 @@
 
         function saveOrder() {
             const qty = document.getElementById('qty').value;
-            if(!qty) return;
+            if(!qty || qty <= 0) { alert("Maglagay ng tamang bilang ng tray!"); return; }
             db.collection("orders").add({
                 phoneNumber: firebase.auth().currentUser.phoneNumber,
                 quantity: parseInt(qty),
                 status: "pending",
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => alert("Order Success!")).catch(err => alert(err.message));
+            }).then(() => alert("Order Success! Total amount: ₱" + (qty * pricePerTray))).catch(err => alert(err.message));
         }
 
         document.getElementById('logout').onclick = () => firebase.auth().signOut().then(() => location.href = "index.html");
