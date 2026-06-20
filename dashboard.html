@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard | Itlog App</title>
+    <style>
+        .pending { color: orange; font-weight: bold; }
+        .completed { color: green; font-weight: bold; }
+        .loader { display: inline-block; width: 10px; height: 10px; background: orange; border-radius: 50%; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } }
+        body { font-family: sans-serif; padding: 20px; }
+    </style>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
@@ -13,53 +20,59 @@
     <br><button id="logout">Logout</button>
 
     <script>
-        const firebaseConfig = { /* I-PASTE ULIT DITO ANG CONFIG MO */ };
+        const firebaseConfig = { /* PASTE MO ULIT CONFIG DITO */ };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
-        const adminNumber = "+639159377840"; 
+        const adminNumber = "+639159377840";
+        let currentPrice = 120;
 
-        firebase.auth().onAuthStateChanged(function(user) {
+        db.collection("settings").doc("price").onSnapshot(doc => { if(doc.exists) currentPrice = doc.data().value; });
+
+        firebase.auth().onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
-            
-            const content = document.getElementById('content');
-            // Kunin ang profile info
             db.collection("users").doc(user.uid).get().then(doc => {
-                const name = doc.exists ? doc.data().name : "Ka-Itlog";
-                const photo = doc.exists ? doc.data().photoURL : "";
-
+                const data = doc.data();
+                const content = document.getElementById('content');
                 if (user.phoneNumber.trim() === adminNumber.trim()) {
                     content.innerHTML = `<h3>Admin Panel</h3><ul id="order-list"></ul>`;
                     loadAdminOrders();
                 } else {
-                    content.innerHTML = `
-                        <h3>Welcome, ${name}! 👋</h3>
-                        <img src="${photo}" style="width:100px; border-radius:50%;" id="profile-img">
-                        <br><input type="file" id="file-upload">
-                        <button onclick="uploadPhoto()">Upload Photo</button>
-                        <hr>
-                        <h3>Mag-order</h3>
+                    content.innerHTML = `<h3>Welcome, ${data.name}! 👋</h3>
+                        <img src="${data.photoURL || ''}" style="width:100px; height:100px; border-radius:50%;"><br>
+                        <input type="file" id="file-upload"><button onclick="uploadPhoto()">Upload Photo</button>
+                        <hr><h3>Mag-order (₱${currentPrice}/tray)</h3>
                         <input type="number" id="qty" placeholder="Ilang tray?">
+                        <p>Total: ₱<span id="total-price">0</span></p>
                         <button id="submit-order">Order Now</button>`;
-                    document.getElementById('submit-order').onclick = saveOrder;
+                    document.getElementById('qty').addEventListener('input', e => document.getElementById('total-price').innerText = e.target.value * currentPrice);
+                    document.getElementById('submit-order').onclick = () => {
+                        const qty = document.getElementById('qty').value;
+                        db.collection("orders").add({ phoneNumber: user.phoneNumber, quantity: parseInt(qty), status: "pending", createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+                        .then(() => alert("Order Success!"));
+                    };
                 }
             });
         });
 
-        // Function para mag-upload ng photo
         function uploadPhoto() {
             const file = document.getElementById('file-upload').files[0];
-            const storageRef = storage.ref('profiles/' + firebase.auth().currentUser.uid);
-            storageRef.put(file).then(() => {
-                storageRef.getDownloadURL().then(url => {
-                    db.collection("users").doc(firebase.auth().currentUser.uid).set({ photoURL: url }, { merge: true });
-                    alert("Profile updated!");
-                    location.reload();
+            storage.ref('profiles/' + firebase.auth().currentUser.uid).put(file).then(snap => {
+                snap.ref.getDownloadURL().then(url => {
+                    db.collection("users").doc(firebase.auth().currentUser.uid).set({ photoURL: url }, { merge: true }).then(() => location.reload());
                 });
             });
         }
-        
-        // ... (Idagdag dito ang loadAdminOrders at saveOrder functions mula sa nakaraang code)
+
+        function loadAdminOrders() {
+            db.collection("orders").orderBy("createdAt", "desc").onSnapshot(snap => {
+                const list = document.getElementById('order-list'); list.innerHTML = "";
+                snap.forEach(doc => {
+                    const o = doc.data();
+                    list.innerHTML += `<li>${o.phoneNumber}: ${o.quantity} trays - <b>${o.status}</b> <button onclick="db.collection('orders').doc('${doc.id}').update({status:'completed'})">Done</button></li>`;
+                });
+            });
+        }
     </script>
 </body>
 </html>
