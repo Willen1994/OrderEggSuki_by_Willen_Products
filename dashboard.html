@@ -11,10 +11,36 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    
     <script>
+        // Ang iyong Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
+            authDomain: "eggforyouapp.firebaseapp.com",
+            projectId: "eggforyouapp",
+            storageBucket: "eggforyouapp.appspot.com",
+            messagingSenderId: "278734919378",
+            appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+
+        // Security Guard: I-check kung may naka-login
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (!user) {
+                // Kung walang user, pilit na ibabalik sa login page
+                window.location.href = "index.html";
+            } else {
+                console.log("Logged in as:", user.phoneNumber);
+            }
+        });
+
+        // Logout function
         document.getElementById('logout').addEventListener('click', function() {
             firebase.auth().signOut().then(() => {
                 window.location.href = "index.html";
+            }).catch((error) => {
+                alert("Error sa pag-logout: " + error.message);
             });
         });
     </script>
