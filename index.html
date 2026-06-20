@@ -5,58 +5,67 @@
     <title>Itlog Order App</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
 </head>
 <body>
     <h2>Login sa Itlog App</h2>
+
     <div id="login-form">
         <input type="tel" id="phone" placeholder="+639123456789" value="+639159377840">
         <button id="send-otp">Send OTP</button>
     </div>
+
     <div id="otp-form" style="display:none;">
         <input type="text" id="otp" placeholder="Enter 6-digit OTP">
         <button id="verify-otp">Verify Code</button>
     </div>
-    <div id="name-form" style="display:none;">
-        <h3>Ano ang pangalan mo?</h3>
-        <input type="text" id="user-name" placeholder="Ilagay ang pangalan">
-        <button onclick="saveName()">Submit</button>
-    </div>
+
     <div id="recaptcha-container"></div>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
-            authDomain: "eggforyouapp.firebaseapp.com",
-            projectId: "eggforyouapp",
-            storageBucket: "eggforyouapp.firebasestorage.app",
-            messagingSenderId: "278734919378",
-            appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { 'size': 'normal' });
+    const firebaseConfig = {
+        apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
+        authDomain: "eggforyouapp.firebaseapp.com",
+        projectId: "eggforyouapp",
+        storageBucket: "eggforyouapp.firebasestorage.app",
+        messagingSenderId: "278734919378",
+        appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
 
-        document.getElementById('send-otp').addEventListener('click', () => {
-            firebase.auth().signInWithPhoneNumber(document.getElementById('phone').value, window.recaptchaVerifier)
-                .then(res => { window.confirmationResult = res; document.getElementById('otp-form').style.display = 'block'; document.getElementById('login-form').style.display = 'none'; });
-        });
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'normal' 
+    });
 
-        document.getElementById('verify-otp').addEventListener('click', () => {
-            window.confirmationResult.confirm(document.getElementById('otp').value).then(result => {
-                db.collection("users").doc(result.user.uid).get().then(doc => {
-                    if (doc.exists && doc.data().name) { window.location.href = "dashboard.html"; }
-                    else { document.getElementById('otp-form').style.display = 'none'; document.getElementById('name-form').style.display = 'block'; }
-                });
+    document.getElementById('send-otp').addEventListener('click', function() {
+        const phoneNumber = document.getElementById('phone').value;
+        const appVerifier = window.recaptchaVerifier;
+
+        firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
+            .then(function(confirmationResult) {
+                window.confirmationResult = confirmationResult;
+                document.getElementById('otp-form').style.display = 'block';
+                document.getElementById('login-form').style.display = 'none';
+                alert("OTP sent!");
+            }).catch(function(error) {
+                console.error(error);
+                alert("Error: " + error.message);
             });
-        });
+    });
 
-        function saveName() {
-            const name = document.getElementById('user-name').value;
-            db.collection("users").doc(firebase.auth().currentUser.uid).set({ name: name }, { merge: true })
-                .then(() => window.location.href = "dashboard.html");
+    document.getElementById('verify-otp').addEventListener('click', function() {
+        const code = document.getElementById('otp').value;
+        if(window.confirmationResult) {
+            confirmationResult.confirm(code).then(function(result) {
+                alert("Login Successful!");
+                // DITO ANG REDIRECT
+                window.location.href = "dashboard.html";
+            }).catch(function(error) {
+                alert("Invalid OTP: " + error.message);
+            });
         }
+    });
     </script>
 </body>
 </html>
