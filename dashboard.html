@@ -6,9 +6,9 @@
     <style>
         .pending { color: orange; font-weight: bold; }
         .completed { color: green; font-weight: bold; }
-        /* Simple Loading Animation */
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-        .loader { display: inline-block; width: 10px; height: 10px; background: orange; border-radius: 50%; animation: blink 1s infinite; }
+        .loader { display: inline-block; width: 10px; height: 10px; background: orange; border-radius: 50%; animation: blink 1s infinite; margin-right: 5px; }
+        body { font-family: sans-serif; padding: 20px; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -16,23 +16,38 @@
 </head>
 <body>
     <h1>Itlog App Dashboard</h1>
-    <div id="content"></div>
+    <div id="content">Naglo-load...</div>
     <br><button id="logout">Logout</button>
 
     <script>
-        const firebaseConfig = { /* I-PASTE DITO ULIT YUNG CONFIG MO */ };
+        const firebaseConfig = {
+            apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
+  authDomain: "eggforyouapp.firebaseapp.com",
+  projectId: "eggforyouapp",
+  storageBucket: "eggforyouapp.firebasestorage.app",
+  messagingSenderId: "278734919378",
+  appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
+};
+        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const adminNumber = "+639159377840"; 
 
         firebase.auth().onAuthStateChanged(function(user) {
             if (!user) { window.location.href = "index.html"; return; }
+            
             const content = document.getElementById('content');
-            if (user.phoneNumber === adminNumber) {
+            // Ginamitan ng .trim() para sigurado ang match
+            const currentPhone = user.phoneNumber ? user.phoneNumber.trim() : "";
+            console.log("Naka-login na number:", currentPhone);
+
+            if (currentPhone === adminNumber.trim()) {
                 content.innerHTML = `<h3>Admin Panel</h3><ul id="order-list"></ul>`;
                 loadAdminOrders();
             } else {
-                content.innerHTML = `<h3>Mag-order</h3><input type="number" id="qty" placeholder="Ilang tray?"><button id="submit-order">Order</button>`;
+                content.innerHTML = `<h3>Mag-order ng Itlog</h3>
+                                    <input type="number" id="qty" placeholder="Ilang tray?">
+                                    <button id="submit-order">Order Now</button>`;
                 document.getElementById('submit-order').onclick = saveOrder;
             }
         });
@@ -41,7 +56,7 @@
             db.collection("orders").doc(docId).update({
                 status: "completed",
                 deliveredAt: new Date().toLocaleString()
-            });
+            }).catch(err => alert("Error: " + err.message));
         }
 
         function loadAdminOrders() {
@@ -53,10 +68,12 @@
                     const li = document.createElement('li');
                     
                     if(o.status === 'pending') {
-                        li.innerHTML = `${o.phoneNumber}: ${o.quantity} tray - <span class="pending"><div class="loader"></div> PENDING</span> 
+                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> 
+                        <span class="pending"><div class="loader"></div> PENDING</span> 
                         <button onclick="updateStatus('${doc.id}')">Mark as Done</button>`;
                     } else {
-                        li.innerHTML = `${o.phoneNumber}: ${o.quantity} tray - <span class="completed">✅ DONE!</span> 
+                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> 
+                        <span class="completed">✅ DONE!</span> 
                         <br><small>Delivered on: ${o.deliveredAt}</small>`;
                     }
                     list.appendChild(li);
@@ -72,7 +89,7 @@
                 quantity: parseInt(qty),
                 status: "pending",
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => alert("Order Success!"));
+            }).then(() => alert("Order Success!")).catch(err => alert(err.message));
         }
 
         document.getElementById('logout').onclick = () => firebase.auth().signOut().then(() => location.href = "index.html");
