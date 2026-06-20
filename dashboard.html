@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | Itlog App</title>
+</head>
+<body>
+    <h1>Welcome sa iyong Dashboard!</h1>
+    <p>Naka-login ka na nang matagumpay.</p>
+    <button id="logout">Logout</button>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script>
+        document.getElementById('logout').addEventListener('click', function() {
+            firebase.auth().signOut().then(() => {
+                window.location.href = "index.html";
+            });
+        });
+    </script>
+</body>
+</html>
