@@ -6,73 +6,101 @@
     <style>
         .pending { color: orange; font-weight: bold; }
         .completed { color: green; font-weight: bold; }
-        .loader { display: inline-block; width: 10px; height: 10px; background: orange; border-radius: 50%; animation: blink 1s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .loader { display: inline-block; width: 10px; height: 10px; background: orange; border-radius: 50%; animation: blink 1s infinite; margin-right: 5px; }
         body { font-family: sans-serif; padding: 20px; }
+        .price-tag { color: blue; font-weight: bold; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 </head>
 <body>
+    <h1>Itlog App Dashboard</h1>
     <div id="content">Naglo-load...</div>
     <br><button id="logout">Logout</button>
 
     <script>
-        const firebaseConfig = { /* PASTE MO ULIT CONFIG DITO */ };
+        const firebaseConfig = {
+            apiKey: "AIzaSyDik6lpcisMqbkAHGj7ebLQCOfoUds0RM0",
+            authDomain: "eggforyouapp.firebaseapp.com",
+            projectId: "eggforyouapp",
+            storageBucket: "eggforyouapp.firebasestorage.app",
+            messagingSenderId: "278734919378",
+            appId: "1:278734919378:web:d814c1df08c1f6096e7f0b"
+        };
+        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const storage = firebase.storage();
-        const adminNumber = "+639159377840";
-        let currentPrice = 120;
+        const adminNumber = "+639159377840"; 
+        const pricePerTray = 120; // Dito mo pwedeng baguhin ang presyo
 
-        db.collection("settings").doc("price").onSnapshot(doc => { if(doc.exists) currentPrice = doc.data().value; });
-
-        firebase.auth().onAuthStateChanged(user => {
+        firebase.auth().onAuthStateChanged(function(user) {
             if (!user) { window.location.href = "index.html"; return; }
-            db.collection("users").doc(user.uid).get().then(doc => {
-                const data = doc.data();
-                const content = document.getElementById('content');
-                if (user.phoneNumber.trim() === adminNumber.trim()) {
-                    content.innerHTML = `<h3>Admin Panel</h3><ul id="order-list"></ul>`;
-                    loadAdminOrders();
-                } else {
-                    content.innerHTML = `<h3>Welcome, ${data.name}! 👋</h3>
-                        <img src="${data.photoURL || ''}" style="width:100px; height:100px; border-radius:50%;"><br>
-                        <input type="file" id="file-upload"><button onclick="uploadPhoto()">Upload Photo</button>
-                        <hr><h3>Mag-order (₱${currentPrice}/tray)</h3>
-                        <input type="number" id="qty" placeholder="Ilang tray?">
-                        <p>Total: ₱<span id="total-price">0</span></p>
-                        <button id="submit-order">Order Now</button>`;
-                    document.getElementById('qty').addEventListener('input', e => document.getElementById('total-price').innerText = e.target.value * currentPrice);
-                    document.getElementById('submit-order').onclick = () => {
-                        const qty = document.getElementById('qty').value;
-                        db.collection("orders").add({ phoneNumber: user.phoneNumber, quantity: parseInt(qty), status: "pending", createdAt: firebase.firestore.FieldValue.serverTimestamp() })
-                        .then(() => alert("Order Success!"));
-                    };
-                }
-            });
+            
+            const content = document.getElementById('content');
+            const currentPhone = user.phoneNumber ? user.phoneNumber.trim() : "";
+
+            if (currentPhone === adminNumber.trim()) {
+                content.innerHTML = `<h3>Admin Panel</h3><ul id="order-list"></ul>`;
+                loadAdminOrders();
+            } else {
+                content.innerHTML = `<h3>Mag-order ng Itlog</h3>
+                                    <p>Presyo: ₱${pricePerTray} bawat tray</p>
+                                    <input type="number" id="qty" placeholder="Ilang tray?">
+                                    <p>Total na babayaran: <span id="total-price" class="price-tag">₱0</span></p>
+                                    <button id="submit-order">Order Now</button>`;
+                
+                document.getElementById('qty').addEventListener('input', function() {
+                    const total = this.value * pricePerTray;
+                    document.getElementById('total-price').innerText = "₱" + (this.value > 0 ? total : 0);
+                });
+                document.getElementById('submit-order').onclick = saveOrder;
+            }
         });
 
-        function uploadPhoto() {
-            const file = document.getElementById('file-upload').files[0];
-            storage.ref('profiles/' + firebase.auth().currentUser.uid).put(file).then(snap => {
-                snap.ref.getDownloadURL().then(url => {
-                    db.collection("users").doc(firebase.auth().currentUser.uid).set({ photoURL: url }, { merge: true }).then(() => location.reload());
-                });
-            });
+        function updateStatus(docId) {
+            db.collection("orders").doc(docId).update({
+                status: "completed",
+                deliveredAt: new Date().toLocaleString()
+            }).catch(err => alert("Error: " + err.message));
         }
 
         function loadAdminOrders() {
             db.collection("orders").orderBy("createdAt", "desc").onSnapshot(snap => {
-                const list = document.getElementById('order-list'); list.innerHTML = "";
+                const list = document.getElementById('order-list');
+                list.innerHTML = "";
                 snap.forEach(doc => {
                     const o = doc.data();
-                    list.innerHTML += `<li>${o.phoneNumber}: ${o.quantity} trays - <b>${o.status}</b> <button onclick="db.collection('orders').doc('${doc.id}').update({status:'completed'})">Done</button></li>`;
+                    const li = document.createElement('li');
+                    const total = o.quantity * pricePerTray;
+                    
+                    if(o.status === 'pending') {
+                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> (Singilin: <span class="price-tag">₱${total}</span>) 
+                        <span class="pending"><div class="loader"></div> PENDING</span> 
+                        <button onclick="updateStatus('${doc.id}')">Mark as Done</button>`;
+                    } else {
+                        li.innerHTML = `${o.phoneNumber}: <b>${o.quantity} tray/s</b> (Sinisingil: <span class="price-tag">₱${total}</span>) 
+                        <span class="completed">✅ DONE!</span> 
+                        <br><small>Delivered on: ${o.deliveredAt}</small>`;
+                    }
+                    list.appendChild(li);
                 });
             });
         }
+
+        function saveOrder() {
+            const qty = document.getElementById('qty').value;
+            if(!qty || qty <= 0) { alert("Maglagay ng tamang bilang ng tray!"); return; }
+            db.collection("orders").add({
+                phoneNumber: firebase.auth().currentUser.phoneNumber,
+                quantity: parseInt(qty),
+                status: "pending",
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => alert("Order Success! Total amount: ₱" + (qty * pricePerTray))).catch(err => alert(err.message));
+        }
+
+        document.getElementById('logout').onclick = () => firebase.auth().signOut().then(() => location.href = "index.html");
     </script>
 </body>
 </html>
